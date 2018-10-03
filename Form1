@@ -1,0 +1,3283 @@
+using System;
+
+
+using System.Collections.Generic;
+
+
+using System.ComponentModel;
+
+
+using System.Data;
+
+
+using System.Drawing;
+
+
+using System.Linq;
+
+
+using System.Text;
+
+
+using System.Threading.Tasks;
+
+
+using System.Windows.Forms;
+
+
+using System.Drawing.Imaging;
+
+
+using System.Diagnostics;
+
+
+using System.Net.NetworkInformation;
+
+
+using System.Net;
+
+
+using System.Net.Sockets;
+
+
+using System.Runtime.InteropServices;
+
+
+using System.Runtime;
+
+
+using System.Threading;
+
+
+using System.Data.OleDb;
+
+
+using System.IO;
+
+
+using Microsoft.VisualBasic.PowerPacks;
+
+
+ 
+
+
+
+namespace wanMONCON
+
+
+{
+
+
+    public partial class WANmon : Form
+
+
+    {
+
+
+        public WANmon()
+
+
+        {
+
+
+            InitializeComponent();
+
+
+        }
+
+
+        bool openAddCon = false;
+
+
+        private Point _startPoint = Point.Empty;
+
+
+        private Point _endpoint = Point.Empty;
+
+
+        public string IPNameFrmDB;
+
+
+        public string IPAddr;
+
+
+        public string IPlocation;
+
+
+        public List<GraphLine> SinArr = new List<GraphLine>();
+
+
+        public List<List<GraphLine>> MasterArr = new List<List<GraphLine>>();
+
+
+        public List<GraphLine> MasterArrayOfGraphLines = new List<GraphLine>();
+
+
+        GraphLine SelectedLine = null;
+
+
+        MoveInfo Moving = null;
+
+
+        List<PictureBox> PboxErrorPing = new List<PictureBox>();
+
+
+        List<Point> p1List = new List<Point>();
+
+
+        List<Point> p2List = new List<Point>();
+
+
+        List<String> colorListConn = new List<String>();
+
+
+        List<String> contype = new List<String>();
+
+
+        List<PictureBox> pbloop = new List<PictureBox>();
+
+
+        List<String> ipaddress = new List<String>();
+
+
+        List<String> ipimg = new List<String>();
+
+
+        List<Size> ipSize = new List<Size>();
+
+
+        List<Point> iplocation = new List<Point>();
+
+
+        private static OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.ACE.OLEDB.12.0;Data Source=C:\Users\jrlawas\Desktop\Practice Notes\wanMONCON\wanMONCON\bin\Debug\hostlist.accdb");
+
+
+        private void listView1_SelectedIndexChanged(object sender, EventArgs e)
+
+
+        {
+
+
+
+        }
+
+
+        void MakeSinArray()
+
+
+        {
+
+
+            int numberOfSeg = colorListConn.Count;
+
+
+            double TwoPI = (float)(2 * Math.PI) / numberOfSeg;
+
+
+
+            for (int t = 0; t < numberOfSeg; t++)
+
+
+                this.SinArr.Add(new GraphLine(
+
+
+                    p1List[t].X,
+
+
+                    p1List[t].Y,
+
+
+                    p2List[t].X,
+
+
+                    p2List[t].Y));
+
+
+        }
+
+
+        private void WANmon_Load(object sender, EventArgs e)
+
+
+        {
+
+
+            OleDbCommand cmd;
+
+
+            OleDbDataReader dr;
+
+
+            this.timer1.Start();
+
+
+            Obj = new Control();
+
+
+            _draw = false;
+
+
+            DoubleBuffered = true;
+
+
+            generate_attribs();
+
+
+            //generate_Line();
+
+
+            //generate_Line();
+
+
+            _canDraw = false;
+
+
+            this.button2.BackColor = Color.Transparent;
+
+
+            this.button1.BackColor = Color.Gainsboro;
+
+
+            this.button11.BackColor = Color.Transparent;
+
+
+            this.button10.BackColor = Color.Gainsboro;
+
+
+            this.listView1.View = View.LargeIcon;
+
+
+            this.listView1.LargeImageList = this.Objects;
+
+
+            this.Objects.ColorDepth = ColorDepth.Depth32Bit;
+
+
+            this.Objects.ImageSize = new Size(70,70);
+
+
+            string sql = "Select ID, Name, Path, Description From category Order By ID";
+
+
+            string path = "";
+
+
+            conn.Open();
+
+
+            cmd = new OleDbCommand(sql, conn);
+
+
+            dr = cmd.ExecuteReader();
+
+
+            while (dr.Read())
+
+
+            {
+
+
+                ListViewItem item = new ListViewItem();
+
+
+                path = @"C:\Users\jrlawas\Desktop\Practice Notes\wanMONCON\wanMONCON\IMGOBJ\" + dr.GetValue(0) + ".png";
+
+
+                this.Objects.Images.Add(Image.FromFile(path));
+
+
+                item.ImageIndex = Convert.ToInt32(dr.GetValue(0));
+
+
+                item.Text = Convert.ToString(dr.GetValue(1));
+
+
+                this.listView1.Items.Add(item);
+
+
+            }
+
+
+
+            conn.Close();
+
+
+            
+
+
+        }
+
+
+        //public int genCounter = 0;
+
+
+     
+
+
+        public void generate_attribs()
+
+
+        {
+
+
+            OleDbCommand cmd;
+
+
+            OleDbDataReader dr;
+
+
+            int sizeX, sizeY, locX, locY;
+
+
+            string sl = "SELECT image_id, sizeX, sizeY, locationX, locationY, host_name, ID, ip FROM attributes";
+
+
+            conn.Open();
+
+
+            cmd = new OleDbCommand(sl, conn);
+
+
+            dr = cmd.ExecuteReader();
+
+
+            while (dr.Read())
+
+
+            {
+
+
+                var pb = new PictureBox();
+
+
+                sizeX = Convert.ToInt32(dr.GetValue(1));
+
+
+                sizeY = Convert.ToInt32(dr.GetValue(2));
+
+
+                locX = Convert.ToInt32(dr.GetValue(3));
+
+
+                locY = Convert.ToInt32(dr.GetValue(4));
+
+
+                pb.Size = new System.Drawing.Size(Convert.ToInt32(dr.GetValue(1)), Convert.ToInt32(dr.GetValue(2)));
+
+
+                pb.Location = new System.Drawing.Point(Convert.ToInt32(dr.GetValue(3)), Convert.ToInt32(dr.GetValue(4)));
+
+
+                pb.SizeMode = PictureBoxSizeMode.StretchImage;
+
+
+                pb.BackColor = Color.Transparent;
+
+
+                pb.Name = dr.GetValue(7).ToString();
+
+
+                pb.Image = Image.FromFile(@"C:\Users\jrlawas\Desktop\Practice Notes\wanMONCON\wanMONCON\IMGOBJ\" + dr.GetValue(0).ToString() + ".png");
+
+
+                pictureboxes.Add(new pb_with_connectors { PBO = pb, NAME = pb.Name });
+
+
+                pb.MouseDown += new MouseEventHandler(Obj_MouseDown);
+
+
+                pb.MouseMove += new MouseEventHandler(Obj_MouseMove);
+
+
+                pb.MouseUp += new MouseEventHandler(Obj_MouseUp);
+
+
+               // pb.Paint += new PaintEventHandler(PB_Paint);
+
+
+                if (ping_start == false)
+
+
+                {
+
+
+                    pb.ContextMenuStrip = this.contextMenuStrip1;
+
+
+                }
+
+
+                this.Controls.Add(pb);
+
+
+                pb.MouseClick += new MouseEventHandler(Obj_Clicked);
+
+
+                pb.Invalidate();
+
+
+            }
+
+
+            conn.Close();
+
+
+            //generate_Line();
+
+
+
+        }
+
+
+       public List<pb_with_connectors> pictureboxes = new List<pb_with_connectors>();
+
+
+       public List<Connectors> PBName = new List<Connectors>();
+
+
+        public class pb_with_connectors
+
+
+        {
+
+
+            public PictureBox PBO { get; set; }
+
+
+            public String  NAME { get; set; }
+
+
+        }
+
+
+        public class Connectors
+
+
+        {
+
+
+            public string ID { get; set; }
+
+
+            public string From { get; set; }
+
+
+            public string to { get; set; }
+
+
+        }
+
+
+        private void WANmon_Paint(object sender, PaintEventArgs e)
+
+
+        {
+
+
+
+        }
+
+
+        public void GetBoxIndexConnection()
+
+
+        {
+
+
+ 
+
+
+        }
+
+
+        public class MoveInfo
+
+
+        {
+
+
+            public GraphLine Line;
+
+
+            public PointF StartLinePoint;
+
+
+            public PointF EndLinePoint;
+
+
+            public Point StartMoveMousePoint;
+
+
+        }
+
+
+        public class GraphLine
+
+
+        {
+
+
+            public GraphLine(float x1, float y1, float x2, float y2)
+
+
+            {
+
+
+                this.StartPoint = new PointF(x1, y1);
+
+
+                this.EndPoint = new PointF(x2, y2);
+
+
+            }
+
+
+            public PointF StartPoint;
+
+
+            public PointF EndPoint;
+
+
+        }
+
+
+        private void network_devices_MouseDown(object sender, MouseEventArgs e)
+
+
+        {
+
+
+            if (openAddCon == true)
+
+
+            {
+
+
+                if (e.Button == MouseButtons.Left)
+
+
+                {
+
+
+                    _startPoint = e.Location;
+
+
+                }
+
+
+            }
+
+
+        }
+
+
+        private void network_devices_MouseMove(object sender, MouseEventArgs e)
+
+
+        {
+
+
+            if (openAddCon == true)
+
+
+            {
+
+
+                if (e.Button == MouseButtons.Left)
+
+
+                {
+
+
+                    _endpoint = e.Location;
+
+
+                    this.Refresh();
+
+
+                }
+
+
+            }
+
+
+        }
+
+
+        private void network_devices_Paint(object sender, PaintEventArgs e)
+
+
+        {
+
+
+            if (openAddCon == true)
+
+
+            {
+
+
+                this.Cursor = Cursors.SizeAll;
+
+
+                if (_startPoint != Point.Empty && _endpoint != Point.Empty && _startPoint != _endpoint)
+
+
+                {
+
+
+                    using (var p = new Pen(Color.Red, 1))
+
+
+                    {
+
+
+                        e.Graphics.DrawLine(p, _startPoint, _endpoint);
+
+
+                    }
+
+
+                }
+
+
+            }
+
+
+        }
+
+
+        private void network_devices_MouseUp(object sender, MouseEventArgs e)
+
+
+        {
+
+
+            if (openAddCon == true)
+
+
+            {
+
+
+                if (e.Button == MouseButtons.Left)
+
+
+                {
+
+
+                    //renameIPname ri = new renameIPname(this);
+
+
+                    //ri.changeSettingAddCon();
+
+
+                    //ri.getConnectorInfo(_startPoint, _endpoint);
+
+
+                    //_startPoint = Point.Empty;
+
+
+                    //_endpoint = Point.Empty;
+
+
+                }
+
+
+            }
+
+
+        }
+
+
+        private void listView1_SelectedIndexChanged_1(object sender, EventArgs e)
+
+
+        {
+
+
+
+        }
+
+
+        public Control Obj;
+
+
+        public Point prevlocat;
+
+
+        public Bitmap bp;
+
+
+        public int loopcast=1;
+
+
+        public int displacementX = 50;
+
+
+        public int displacementY = 200;
+
+
+        private void listView1_DoubleClick(object sender, EventArgs e)
+
+
+        {
+
+
+            if (this.listView1.SelectedItems.Count == 1 && ping_start == false)
+
+
+            {
+
+
+                string selected = @"C:\Users\jrlawas\Desktop\Practice Notes\wanMONCON\wanMONCON\IMGOBJ\" + 
+
+
+                    (listView1.SelectedItems[0].ImageIndex + 1) + ".png";
+
+
+                PictureBox Obj = new PictureBox();
+
+
+                var pb = new PictureBox();
+
+
+                pb.Size = new System.Drawing.Size(40, 40);
+
+
+                pb.Name = pictureboxes.Count.ToString();
+
+
+                if (loopcast <= 10)
+
+
+                {
+
+
+                    pb.Location = new Point(displacementX, displacementY);
+
+
+                    displacementX += 10;
+
+
+                    displacementY += 15;
+
+
+                    loopcast += 1;
+
+
+                }
+
+
+                else
+
+
+                {
+
+
+                    pb.Location = new Point(displacementX, displacementY);
+
+
+                    loopcast = 1;
+
+
+                    displacementX += 15;
+
+
+                    displacementY = 200;
+
+
+                    
+
+
+                }
+
+
+                pb.SizeMode = PictureBoxSizeMode.StretchImage;
+
+
+                pb.BackColor = Color.Transparent;
+
+
+                pb.Image = Image.FromFile(selected);
+
+
+                pb.Refresh();
+
+
+                if (ping_start == false)
+
+
+                {
+
+
+                    pb.ContextMenuStrip = this.contextMenuStrip1;
+
+
+                }
+
+
+                pb.MouseDown += new MouseEventHandler(Obj_MouseDown);
+
+
+                pb.MouseMove += new MouseEventHandler(Obj_MouseMove);
+
+
+                pb.MouseUp += new MouseEventHandler(Obj_MouseUp);
+
+
+                pb.MouseClick += new MouseEventHandler(Obj_Clicked);
+
+
+                bp = new Bitmap(pb.Image);
+
+
+                pb.Image = bp;
+
+
+                this.Controls.Add(pb);
+
+
+                pictureboxes.Add(new pb_with_connectors { NAME = pb.Name, PBO = pb });
+
+
+                Invalidate();
+
+
+            }
+
+
+            else
+
+
+            {}
+
+
+        }
+
+
+        private void Obj_Clicked(object sender, MouseEventArgs e)
+
+
+        {
+
+
+            Obj = new PictureBox();
+
+
+            PictureBox pb = (PictureBox)sender;
+
+
+            to_connect_index = pb.Name;
+
+
+        }
+
+
+        private void Obj_Leaved(object sender, MouseEventArgs e)
+
+
+        {
+
+
+            Obj = new PictureBox();
+
+
+            PictureBox pb = (PictureBox)sender;
+
+
+            to_connect_index = pb.Name;
+
+
+            UnSelectPbox(pb);
+
+
+        }
+
+
+        bool resizing = false;
+
+
+        bool drag = false;
+
+
+        private Point startDraggingPoint;
+
+
+        private Size startSize;
+
+
+        Rectangle rectProposedSize = Rectangle.Empty;
+
+
+        int resizingMargin = 5;
+
+
+        int x = 0;
+
+
+        int y = 0;
+
+
+        public void Obj_MouseDown(object sender, MouseEventArgs e)
+
+
+        {
+
+
+            displacementX = 50;
+
+
+            displacementY = 200;
+
+
+            Obj = sender as Control;
+
+
+
+            PictureBox pb = (PictureBox)sender;
+
+
+            if (ping_start == false)
+
+
+            {
+
+
+                if ((e.X <= resizingMargin) || (e.X >= pb.Width - resizingMargin) || (e.Y <= resizingMargin) || (e.Y >= pb.Height - resizingMargin))
+
+
+                {
+
+
+                    resizing = true;
+
+
+                    Cursor.Current = Cursors.SizeNWSE;
+
+
+                    this.startSize = new Size(e.X, e.Y);
+
+
+                    Point pt = this.PointToScreen(pb.Location);
+
+
+                    rectProposedSize = new Rectangle(pt, startSize);
+
+
+                    ControlPaint.DrawReversibleFrame(rectProposedSize, this.ForeColor, FrameStyle.Dashed);
+
+
+                }
+
+
+                else
+
+
+                {
+
+
+                    resizing = false;
+
+
+                    drag = true;
+
+
+                    x = e.X;
+
+
+                    y = e.Y;
+
+
+                    Cursor.Current = Cursors.SizeAll;
+
+
+                }
+
+
+                to_connect_index = pb.Name;
+
+
+                this.startDraggingPoint = e.Location;
+
+
+            }
+
+
+        }
+
+
+        public void Obj_MouseMove(object sender, MouseEventArgs e)
+
+
+        {
+
+
+            displacementX = 50;
+
+
+            displacementY = 200;
+
+
+            PictureBox pb = (PictureBox)sender;
+
+
+            to_connect_index = pb.Name;
+
+
+            if (drag && ping_start == false)
+
+
+            {
+
+
+                resizing = false;
+
+
+                pb.Top += e.Y - y;
+
+
+                pb.Left += e.X - x;
+
+
+                pb.BringToFront();
+
+
+                Invalidate();
+
+
+            }
+
+
+                if (resizing && ping_start==false)
+
+
+                {
+
+
+                    if (rectProposedSize.Width > 0 && rectProposedSize.Height > 0)
+
+
+                    {
+
+
+                        ControlPaint.DrawReversibleFrame(rectProposedSize, this.ForeColor, FrameStyle.Dashed);
+
+
+                        rectProposedSize.Width = e.X - this.startDraggingPoint.X + this.startSize.Width;
+
+
+                        rectProposedSize.Height = e.Y - this.startDraggingPoint.Y + this.startSize.Height;
+
+
+                        if (rectProposedSize.Width > 0 && rectProposedSize.Height > 0)
+
+
+                        {
+
+
+                            ControlPaint.DrawReversibleFrame(rectProposedSize, this.ForeColor, FrameStyle.Dashed);
+
+
+                        }
+
+
+                    }
+
+
+                }
+
+
+                else
+
+
+                {
+
+
+
+                }
+
+
+        }
+
+
+        public void Obj_MouseUp(object sender, MouseEventArgs e)
+
+
+        {
+
+
+            displacementX = 50;
+
+
+            displacementY = 200;
+
+
+            Objects std = new Objects();
+
+
+            PictureBox pb = (PictureBox)sender;
+
+
+            drag = false;
+
+
+            if (resizing && ping_start == false)
+
+
+            {
+
+
+                drag = false;
+
+
+                if (rectProposedSize.Width > 0 && rectProposedSize.Height > 0)
+
+
+                {
+
+
+                    ControlPaint.DrawReversibleFrame(rectProposedSize, this.ForeColor, FrameStyle.Dashed);
+
+
+                }
+
+
+                if (rectProposedSize.Width > 10 && rectProposedSize.Height > 10)
+
+
+                {
+
+
+                    pb.Size = rectProposedSize.Size;
+
+
+                    Obj = null;
+
+
+                }
+
+
+                else
+
+
+                {
+
+
+                    pb.Size = new Size((int)Math.Max(10, rectProposedSize.Width), Math.Max(10, rectProposedSize.Height));
+
+
+                    Obj = null;
+
+
+                }
+
+
+            }
+
+
+            else
+
+
+            {
+
+
+
+            }
+
+
+            resizing = false;
+
+
+            to_connect_index = pb.Name;
+
+
+        }
+
+
+        private void listView1_SelectedIndexChanged_2(object sender, EventArgs e)
+
+
+        {
+
+
+
+        }
+
+
+        private void WANmon_DragEnter(object sender, DragEventArgs e)
+
+
+        {
+
+
+            e.Effect = DragDropEffects.Move;
+
+
+        }
+
+
+        private void WANmon_MouseMove(object sender, MouseEventArgs e)
+
+
+        {
+
+
+            if (e.Button == MouseButtons.Left)
+
+
+                _terminus = e.Location;
+
+
+            Invalidate();
+
+
+            //RefreshLineSelection(e.Location);
+
+
+        }
+
+
+        private void RefreshLineSelection(Point point)
+
+
+        {
+
+
+            var selectedLine = FindLineByPoint(MasterArrayOfGraphLines, point);
+
+
+
+            if (selectedLine != this.SelectedLine)
+
+
+            {
+
+
+                this.SelectedLine = selectedLine;
+
+
+                this.Invalidate();
+
+
+            }
+
+
+            if (Moving != null)
+
+
+                this.Invalidate();
+
+
+
+            this.Cursor = Moving != null ? Cursors.Hand : SelectedLine != null ? Cursors.SizeAll : Cursors.Default;
+
+
+        }
+
+
+        static GraphLine FindLineByPoint(List<GraphLine> lines, Point p)
+
+
+        {
+
+
+            var size = 40;
+
+
+            var buffer = new Bitmap(size * 2, size * 2);
+
+
+            foreach (var line in lines)
+
+
+            {
+
+
+                
+
+
+                using (var g = Graphics.FromImage(buffer))
+
+
+                {
+
+
+                    g.Clear(Color.Black);  
+
+
+                    g.DrawLine(new Pen(Color.Green, 3),  
+
+
+                    line.StartPoint.X - p.X + size,
+
+
+                    line.StartPoint.Y - p.Y + size,
+
+
+                    line.EndPoint.X - p.X + size,
+
+
+                    line.EndPoint.Y - p.Y + size);
+
+
+                }
+
+
+                if (buffer.GetPixel(size, size).ToArgb() != Color.Black.ToArgb())
+
+
+                    return line;
+
+
+            }
+
+
+            return null;
+
+
+        }
+
+
+        private void panel6_Paint(object sender, PaintEventArgs e)
+
+
+        {
+
+
+
+        }
+
+
+        private void button1_Click(object sender, EventArgs e)
+
+
+        {
+
+
+
+        }
+
+
+        public Point _Origin = Point.Empty;
+
+
+        public Point _terminus = Point.Empty;
+
+
+        public Boolean _draw;
+
+
+        private List<Tuple<Point, Point>> _lines = new List<Tuple<Point, Point>>();
+
+
+        private void button2_Click(object sender, EventArgs e)
+
+
+        {
+
+
+            if (_draw == true)
+
+
+            {
+
+
+                this.button2.BackColor = Color.Gainsboro;
+
+
+                this.button1.BackColor = Color.Transparent;
+
+
+                _draw = false;
+
+
+            }
+
+
+            else
+
+
+            {
+
+
+                this.button2.BackColor = Color.Transparent;
+
+
+                this.button1.BackColor = Color.Gainsboro;
+
+
+                _draw = true;
+
+
+            }
+
+
+            //ShapeContainer canvas = new ShapeContainer();
+
+
+            //LineShape theLine = new LineShape();
+
+
+            //canvas.Parent = this;
+
+
+            //theLine.Parent = canvas;
+
+
+            //theLine.StartPoint = new System.Drawing.Point(0, 0);
+
+
+            //theLine.EndPoint = new System.Drawing.Point(640, 480);
+
+
+        }
+
+
+        private void button1_MouseDown(object sender, MouseEventArgs e)
+
+
+        {
+
+
+            if (_draw == true)
+
+
+            {
+
+
+                this.button2.BackColor = Color.Gainsboro;
+
+
+                this.button1.BackColor = Color.Transparent;
+
+
+                _draw = false;
+
+
+            }
+
+
+            else
+
+
+            {
+
+
+                this.button2.BackColor = Color.Transparent;
+
+
+                this.button1.BackColor = Color.Gainsboro;
+
+
+                _draw = true;
+
+
+            }
+
+
+        }
+
+
+        private void WANmon_MouseDown(object sender, MouseEventArgs e)
+
+
+        {
+
+
+            if (e.Button == MouseButtons.Left)
+
+
+            {
+
+
+                _draw = true;
+
+
+                _Origin = e.Location;
+
+
+            }
+
+
+            else
+
+
+            {
+
+
+                _draw = false;
+
+
+                _Origin = Point.Empty;
+
+
+            }
+
+
+            _terminus = Point.Empty;
+
+
+            Invalidate();
+
+
+        }
+
+
+        private void WANmon_MouseUp(object sender, MouseEventArgs e)
+
+
+        {
+
+
+            if (_draw && !_Origin.IsEmpty && !_terminus.IsEmpty)_lines.Add(new Tuple<Point, Point>(_Origin, _terminus));
+
+
+            _draw = false;
+
+
+            _Origin = Point.Empty;
+
+
+            _terminus = Point.Empty;
+
+
+            Invalidate();
+
+
+        }
+
+
+        public Pen penpen;
+
+
+        private void WANmon_KeyPress(object sender, KeyPressEventArgs e)
+
+
+        {
+
+
+            
+
+
+        }
+
+
+        private void WANmon_KeyDown(object sender, KeyEventArgs e)
+
+
+        {
+
+
+           
+
+
+            if (e.KeyCode == Keys.Delete || e.KeyCode == Keys.Escape || e.KeyCode == Keys.Back)
+
+
+            {
+
+
+                if (Obj != null)
+
+
+                {
+
+
+                    this.Controls.Remove(Obj);
+
+
+                }
+
+
+            }
+
+
+            
+
+
+        }
+
+
+        private void WANmon_KeyUp(object sender, KeyEventArgs e)
+
+
+        {
+
+
+           
+
+
+            if (e.KeyCode == Keys.Delete || e.KeyCode == Keys.Escape || e.KeyCode == Keys.Back)
+
+
+            {
+
+
+                if (Obj != null)
+
+
+                {
+
+
+                    this.Controls.Remove(Obj);
+
+
+                    MessageBox.Show("NULL");
+
+
+                }
+
+
+            }
+
+
+        }
+
+
+        private void contextMenuStrip1_Opening(object sender, CancelEventArgs e)
+
+
+        {
+
+
+        }
+
+
+        private void contextMenuStrip1_MouseClick(object sender, MouseEventArgs e)
+
+
+        {
+
+
+            
+
+
+
+        }
+
+
+        private void Item_Click(object sender, ToolStripItemClickedEventArgs e)
+
+
+        {
+
+
+        Objects oj = new Objects();
+
+
+        if (e.ClickedItem.Text == "Remove")
+
+
+            {
+
+
+                this.Controls.Remove(Obj);
+
+
+            }
+
+
+        else if (e.ClickedItem.Text == "Rotate Left")
+
+
+            {
+
+
+                if (bp != null && Obj != null)
+
+
+                {
+
+
+                    bp.RotateFlip(RotateFlipType.Rotate180FlipX);
+
+
+                    bp = null;
+
+
+                }
+
+
+            }
+
+
+        else if (e.ClickedItem.Text == "Rotate Right")
+
+
+            {
+
+
+                if (bp != null && Obj != null)
+
+
+                {
+
+
+                    bp.RotateFlip(RotateFlipType.Rotate180FlipY);
+
+
+                    bp = null;
+
+
+                }
+
+
+            }
+
+
+        else if (e.ClickedItem.Text == "Add Connection")
+
+
+        {
+
+
+            if (bp != null && Obj != null)
+
+
+            {
+
+
+                oj.Show();
+
+
+            }
+
+
+        }
+
+
+        else
+
+
+        {
+
+
+ 
+
+
+        }
+
+
+        return;
+
+
+        }
+
+
+        private void toolStripMenuItem5_Click(object sender, EventArgs e)
+
+
+        {
+
+
+
+        }
+
+
+        private void toolStripMenuItem1_Click(object sender, EventArgs e)
+
+
+        {
+
+
+            Objects oj = new Objects();
+
+
+            OleDbCommand cmd;
+
+
+            OleDbDataReader dr;
+
+
+            oj.listView1.Items.Clear();
+
+
+            oj.listView1.View = View.LargeIcon;
+
+
+            oj.listView1.LargeImageList = oj.imageList1;
+
+
+            oj.imageList1.ColorDepth = ColorDepth.Depth32Bit;
+
+
+            oj.imageList1.ImageSize = new Size(70, 70);
+
+
+            string sql = "Select ID, Name, Path, Description From category Order By ID";
+
+
+            string path = "";
+
+
+            conn.Close();
+
+
+            conn.Open();
+
+
+            cmd = new OleDbCommand(sql, conn);
+
+
+            dr = cmd.ExecuteReader();
+
+
+            while (dr.Read())
+
+
+            {
+
+
+                ListViewItem item = new ListViewItem();
+
+
+                path = @"C:\Users\jrlawas\Desktop\Practice Notes\wanMONCON\wanMONCON\IMGOBJ\" + dr.GetValue(0) + ".png";
+
+
+                oj.imageList1.Images.Add(Image.FromFile(path));
+
+
+                item.ImageIndex = Convert.ToInt32(dr.GetValue(0));
+
+
+                item.Text = Convert.ToString(dr.GetValue(1));
+
+
+                oj.listView1.Items.Add(item);
+
+
+            }
+
+
+            conn.Close();
+
+
+            oj.ShowDialog();
+
+
+            addImage_to_list(oj.pathi);
+
+
+
+        }
+
+
+        public void addImage_to_list(string Path)
+
+
+        {
+
+
+            Objects ojt = new wanMONCON.Objects();
+
+
+            if (Path != null)
+
+
+            {
+
+
+                var pb = new PictureBox();
+
+
+                pb.Size = new System.Drawing.Size(40, 40);
+
+
+                pb.Name = pictureboxes.Count.ToString();
+
+
+                if (loopcast <= 100)
+
+
+                {
+
+
+                    pb.Location = new Point(displacementX, displacementY);
+
+
+                    displacementX += 10;
+
+
+                    displacementY += 15;
+
+
+                    loopcast += 1;
+
+
+                }
+
+
+                else
+
+
+                {
+
+
+                    pb.Location = new Point(displacementX, displacementY);
+
+
+                    loopcast = 1;
+
+
+                }
+
+
+                pb.SizeMode = PictureBoxSizeMode.StretchImage;
+
+
+                pb.BackColor = Color.Transparent;
+
+
+                pb.Image = Image.FromFile(Path);
+
+
+                pb.Refresh();
+
+
+                pb.ContextMenuStrip = this.contextMenuStrip1;
+
+
+                from_connect_index = pb.Name;
+
+
+                pb.MouseDown += new MouseEventHandler(Obj_MouseDown);
+
+
+                pb.MouseMove += new MouseEventHandler(Obj_MouseMove);
+
+
+                pb.MouseUp += new MouseEventHandler(Obj_MouseUp);
+
+
+                bp = new Bitmap(pb.Image);
+
+
+                pb.Image = bp;
+
+
+                this.Controls.Add(pb);
+
+
+                pictureboxes.Add(new pb_with_connectors { NAME = pb.Name, PBO = pb });
+
+
+                pb.Paint += new PaintEventHandler(Draw_Line_Added_Connection);
+
+
+                pb.MouseClick += new MouseEventHandler(Obj_Clicked);
+
+
+                Invalidate();
+
+
+            }
+
+
+        }
+
+
+        public string from_connect_index;
+
+
+        public string to_connect_index;
+
+
+        public void Draw_Line_Added_Connection(object sender, PaintEventArgs e)
+
+
+        {
+
+
+            e.Graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.High;
+
+
+            e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
+
+
+            Pen BlackPen = new Pen(Color.FromArgb(255, 0, 0, 0), 2);
+
+
+            Pen RedPen = new Pen(Color.FromArgb(192, 0, 0), 3);
+
+
+            if (pictureboxes.Count > 1)
+
+
+            {
+
+
+                PictureBox frm = new PictureBox();
+
+
+                PictureBox to = new PictureBox();
+
+
+                int frmindex = pictureboxes.FindIndex(a => a.PBO.Name == from_connect_index);
+
+
+                int toindex = pictureboxes.FindIndex(a => a.PBO.Name == to_connect_index);
+
+
+                frm = pictureboxes[frmindex].PBO;
+
+
+                to = pictureboxes[toindex].PBO; 
+
+
+                DrawLineBetween(e.Graphics, frm, to, RedPen);
+
+
+            }
+
+
+        }
+
+
+        private void toolStripMenuItem3_Click(object sender, EventArgs e)
+
+
+        {
+
+
+            var frmindex = pictureboxes.SingleOrDefault(a => a.PBO.Name == to_connect_index);
+
+
+            foreach (Control item in this.Controls.OfType<Control>())
+
+
+            {
+
+
+                if (item.Name == to_connect_index)
+
+
+                {
+
+
+                    this.Controls.Remove(item);
+
+
+                }
+
+
+            }
+
+
+        }
+
+
+        public void SelectPbox(PictureBox Form)
+
+
+        {
+
+
+            Form.BorderStyle = BorderStyle.Fixed3D;
+
+
+            Form.BackColor = Color.LimeGreen;
+
+
+        }
+
+
+        public void UnSelectPbox(PictureBox Form)
+
+
+        {
+
+
+            Form.BorderStyle = BorderStyle.None;
+
+
+            Form.BackColor = Color.Transparent;
+
+
+        }
+
+
+        private bool _canDraw;
+
+
+        private int _startX, _startY;
+
+
+        private Rectangle _rect;
+
+
+        private void button4_Click(object sender, EventArgs e)
+
+
+        {
+
+
+            if (_canDraw == true)
+
+
+            {
+
+
+                this.MouseDown += new MouseEventHandler(Rect_Draw_Mouse_Down);
+
+
+                this.MouseUp += new MouseEventHandler(Rect_Draw_Mouse_Up);
+
+
+                this.MouseMove += new MouseEventHandler(Rect_Draw_Mouse_Move);
+
+
+                this.Paint += new PaintEventHandler(Create_Rectangle);
+
+
+               _canDraw = false;
+
+
+            }
+
+
+            else
+
+
+            {
+
+
+                _canDraw = true;
+
+
+            }
+
+
+        }
+
+
+        public void Rect_Draw_Mouse_Down(object sender, MouseEventArgs e)
+
+
+        {
+
+
+            _canDraw = true;
+
+
+            _startX = e.X;
+
+
+            _startY = e.Y;
+
+
+        }
+
+
+        public void Rect_Draw_Mouse_Up(object sender, MouseEventArgs e)
+
+
+        {
+
+
+            _canDraw = false;
+
+
+        }
+
+
+        private void Rect_Draw_Mouse_Move(object sender, MouseEventArgs e)
+
+
+        {
+
+
+            if (!_canDraw) return;
+
+
+            int x = Math.Min(_startX, e.X);
+
+
+            int y = Math.Min(_startY, e.Y);
+
+
+            int width = Math.Max(_startX, e.X) - Math.Min(_startX, e.X);
+
+
+            int height = Math.Max(_startY, e.Y) - Math.Min(_startY, e.Y);
+
+
+            _rect = new Rectangle(x, y, width, height);
+
+
+        }
+
+
+        private void Create_Rectangle(object sender, PaintEventArgs e)
+
+
+        {
+
+
+            using (Pen pen = new Pen(Color.Black, 1))
+
+
+                {
+
+
+                    e.Graphics.DrawRectangle(pen, _rect);
+
+
+                }
+
+
+        }
+
+
+        public class Obj_Label_Created
+
+
+        {
+
+
+            public Label lblText { get; set; }
+
+
+            public int LocX { get; set; }
+
+
+            public int LocY { get; set; }
+
+
+        }
+
+
+        List<Obj_Label_Created> Obj_Label = new List<Obj_Label_Created>();
+
+
+        int lbl_displacementX = 50;
+
+
+        int lbl_displacementY = 200;
+
+
+        int lbl_loophole = 0;
+
+
+        private void button3_Click(object sender, EventArgs e)
+
+
+        {
+
+
+            Label text_add = new Label();
+
+
+            if (lbl_loophole <= 10)
+
+
+            {
+
+
+                text_add.Location = new Point(lbl_displacementX, lbl_displacementY);
+
+
+                lbl_displacementX += 10;
+
+
+                lbl_displacementY += 15;
+
+
+            }
+
+
+            else
+
+
+            {
+
+
+                lbl_displacementX = 50;
+
+
+                lbl_displacementY = 200;
+
+
+                text_add.Location = new Point(lbl_displacementX, lbl_displacementY);
+
+
+            }
+
+
+             text_add.Text = "ENTER LABEL HERE!";
+
+
+             text_add.MouseDown += new MouseEventHandler(Label_MouseDown);
+
+
+             text_add.MouseMove += new MouseEventHandler(Label_MouseMove);
+
+
+             text_add.MouseUp += new MouseEventHandler(Label_MouseUp);
+
+
+             this.Controls.Add(text_add);
+
+
+        }
+
+
+        private void LabelMouseDoubleClick(object sender, MouseEventArgs e)
+
+
+        {
+
+
+            var label = sender as Label;
+
+
+            if (label != null)
+
+
+            {
+
+
+                
+
+
+            }
+
+
+        }
+
+
+        public void Label_MouseDown(object sender, MouseEventArgs e)
+
+
+        {
+
+
+          
+
+
+            Label pb = (Label)sender;
+
+
+            resizing = false;
+
+
+            if ((e.X <= resizingMargin) || (e.X >= pb.Width - resizingMargin) || (e.Y <= resizingMargin) || (e.Y >= pb.Height - resizingMargin))
+
+
+            {
+
+
+               
+
+
+            }
+
+
+            else
+
+
+            {
+
+
+                resizing = false;
+
+
+                drag = true;
+
+
+                x = e.X;
+
+
+                y = e.Y;
+
+
+                Cursor.Current = Cursors.SizeAll;
+
+
+            }
+
+
+            to_connect_index = pb.Name;
+
+
+            this.startDraggingPoint = e.Location;
+
+
+        }
+
+
+        public void Label_MouseMove(object sender, MouseEventArgs e)
+
+
+        {
+
+
+            displacementX = 50;
+
+
+            displacementY = 200;
+
+
+            Label pb = (Label)sender;
+
+
+            //  UnSelectPbox(pb);
+
+
+            resizing = false;
+
+
+            to_connect_index = pb.Name;
+
+
+            if (drag)
+
+
+            {
+
+
+                resizing = false;
+
+
+                pb.Top += e.Y - y;
+
+
+                pb.Left += e.X - x;
+
+
+                pb.BringToFront();
+
+
+                Invalidate();
+
+
+            }
+
+
+            if (resizing)
+
+
+            {
+
+
+         
+
+
+            }
+
+
+            else
+
+
+            {
+
+
+
+            }
+
+
+        }
+
+
+        public void Label_MouseUp(object sender, MouseEventArgs e)
+
+
+        {
+
+
+            displacementX = 50;
+
+
+            displacementY = 200;
+
+
+            resizing = false;
+
+
+            Objects std = new Objects();
+
+
+            Label pb = (Label)sender;
+
+
+            drag = false;
+
+
+            if (resizing)
+
+
+            {
+
+
+                drag = false;
+
+
+                if (rectProposedSize.Width > 0 && rectProposedSize.Height > 0)
+
+
+                {
+
+
+                    ControlPaint.DrawReversibleFrame(rectProposedSize, this.ForeColor, FrameStyle.Dashed);
+
+
+                }
+
+
+                if (rectProposedSize.Width > 10 && rectProposedSize.Height > 10)
+
+
+                {
+
+
+                    pb.Size = rectProposedSize.Size;
+
+
+                    Obj = null;
+
+
+                }
+
+
+                else
+
+
+                {
+
+
+                    pb.Size = new Size((int)Math.Max(10, rectProposedSize.Width), Math.Max(10, rectProposedSize.Height));
+
+
+                    Obj = null;
+
+
+                }
+
+
+            }
+
+
+            else
+
+
+            {
+
+
+
+            }
+
+
+            resizing = false;
+
+
+            to_connect_index = pb.Name;
+
+
+        }
+
+
+        int counter = 15;
+
+
+        int timeout = 1;
+
+
+        public bool ping_start = true;
+
+
+        private void timer1_Tick(object sender, EventArgs e)
+
+
+        {
+
+
+            if (ping_start)
+
+
+            {
+
+
+            if (counter > 1)
+
+
+            {
+
+
+                this.Text = "CISCO NETWORK MONITORING ( " + counter.ToString() + " secs )";
+
+
+               
+
+
+                counter--;
+
+
+            }
+
+
+            else if (counter == 1)
+
+
+            {
+
+
+                this.Text = "CISCO NETWORK MONITORING ( " + counter.ToString() + " sec )";
+
+
+                counter--;
+
+
+
+            }
+
+
+            else
+
+
+            {
+
+
+                this.Text = "Collecting ping results...";
+
+
+                counter = 15;
+
+
+                load_IP_PB();
+
+
+                timeout++;
+
+
+                if (timeout == 3)
+
+
+                {
+
+
+                    timeout = 1;
+
+
+                }
+
+
+            }
+
+
+            }
+
+
+          
+
+
+
+        }
+
+
+        int genCounter = 0;
+
+
+        public void load_IP_PB()
+
+
+        {
+
+
+            OleDbCommand cmd;
+
+
+            OleDbDataReader dr;
+
+
+            string sql = "SELECT ip, sizeX, sizeY, locationX, locationY, image_id, host_name FROM attributes";
+
+
+            conn.Open();
+
+
+            cmd = new OleDbCommand(sql, conn);
+
+
+            dr = cmd.ExecuteReader();
+
+
+            if (genCounter == 0)
+
+
+            {
+
+
+                for (int ix = this.Controls.Count - 1; ix >= 0; ix--)
+
+
+                {
+
+
+                    if (this.Controls[ix] is PictureBox)
+
+
+                    {
+
+
+                        this.Controls[ix].Dispose();
+
+
+                       
+
+
+                    }
+
+
+                }
+
+
+                pictureboxes.Clear();
+
+
+                PBName.Clear();
+
+
+                    while (dr.Read())
+
+
+                    {
+
+
+                        PictureBox pb = new PictureBox();
+
+
+                        pb.Name = dr.GetValue(0).ToString();
+
+
+                        pb.Size = new System.Drawing.Size(Convert.ToInt32(dr.GetValue(1)), Convert.ToInt32(dr.GetValue(2)));
+
+
+                        pb.Location = new System.Drawing.Point(Convert.ToInt32(dr.GetValue(3)), Convert.ToInt32(dr.GetValue(4)));
+
+
+                        pb.SizeMode = PictureBoxSizeMode.StretchImage;
+
+
+                        pb.BackColor = Color.Transparent;
+
+
+                        pb.Image = Image.FromFile(@"C:\Users\jrlawas\Desktop\Practice Notes\wanMONCON\wanMONCON\IMGOBJ\" + dr.GetValue(5).ToString() + ".png");
+
+
+                        pb.MouseDown += new MouseEventHandler(Obj_MouseDown);
+
+
+                        pb.MouseMove += new MouseEventHandler(Obj_MouseMove);
+
+
+                        pb.MouseUp += new MouseEventHandler(Obj_MouseUp);
+
+
+                        if (ping_start == false)
+
+
+                        {
+
+
+                            pb.ContextMenuStrip = this.contextMenuStrip1;
+
+
+                        }
+
+
+                        pictureboxes.Add(new pb_with_connectors { PBO = pb, NAME = pb.Name });
+
+
+                        this.Controls.Add(pb);
+
+
+                        pb.Invalidate();
+
+
+                        SweepPing(pb, pb.Name);
+
+
+                       
+
+
+                    }
+
+
+                    genCounter = 1;
+
+
+            }
+
+
+         else
+
+
+         {
+
+
+             LoopIP();
+
+
+         }
+
+
+             conn.Close();
+
+
+             generate_Line();
+
+
+        }
+
+
+        public void LoopIP()
+
+
+        {
+
+
+                    for (int z = 0; z < pictureboxes.Count; z++)
+
+
+                    {
+
+
+                        PictureBox pb = pictureboxes[z].PBO;
+
+
+                        string name = pictureboxes[z].NAME;
+
+
+                        SweepPing(pb, name);
+
+
+                    }
+
+
+        }
+
+
+        private int Tout = 1000;
+
+
+        static object lockObj = new object();
+
+
+        Stopwatch stopwatch = new Stopwatch();
+
+
+        TimeSpan ts;
+
+
+        public async void SweepPing(PictureBox pb, string name)
+
+
+        {
+
+
+            var tasks = new List<Task>();
+
+
+            stopwatch.Start();
+
+
+            System.Net.NetworkInformation.Ping p = new System.Net.NetworkInformation.Ping();
+
+
+            var task = PingAsync(p, name, pb);
+
+
+            tasks.Add(task);
+
+
+            await Task.WhenAll(tasks).ContinueWith(t => {stopwatch.Stop();ts = stopwatch.Elapsed;});
+
+
+        }
+
+
+        public static string ipTracker;
+
+
+        private async Task PingAsync(System.Net.NetworkInformation.Ping ping, string ip, PictureBox pb)
+
+
+        {
+
+
+            int number = 1;
+
+
+            for (int z = 0; z < 4; z++)
+
+
+            {
+
+
+                var reply = await ping.SendPingAsync(ip, Tout);
+
+
+                if (reply.Status == System.Net.NetworkInformation.IPStatus.Success)
+
+
+                {
+
+
+                    for (int x = 0; x < pictureboxes.Count; x++)
+
+
+                    {
+
+
+                        if (ip == pictureboxes[x].NAME)
+
+
+                        {
+
+
+                            PictureBox tbx = this.Controls.Find(ip, true).FirstOrDefault() as PictureBox;
+
+
+                            tbx.BackColor = Color.Transparent;
+
+
+                        }
+
+
+                    }
+
+
+                }
+
+
+                else
+
+
+                {
+
+
+                    for (int x = 0; x < pictureboxes.Count; x++)
+
+
+                    {
+
+
+                        if (ip == pictureboxes[x].NAME)
+
+
+                        {
+
+
+                              PictureBox tbx = this.Controls.Find(ip, true).FirstOrDefault() as PictureBox;
+
+
+                              tbx.BackColor = Color.Red;
+
+
+                        }
+
+
+                    }
+
+
+                }
+
+
+                number = number + 1;
+
+
+                await Task.Delay(3750);
+
+
+            }
+
+
+        }
+
+
+
+        private void Flicker1_Tick(object sender, EventArgs e)
+
+
+        {
+
+
+
+        }
+
+
+        private void Flicker2_Tick(object sender, EventArgs e)
+
+
+        {
+
+
+
+        }    
+
+
+        private void button10_Click(object sender, EventArgs e)
+
+
+        {
+
+
+            if (ping_start)
+
+
+            {
+
+
+                this.button11.BackColor = Color.Transparent;
+
+
+                this.button10.BackColor = Color.Gainsboro;
+
+
+            }
+
+
+            else
+
+
+            {
+
+
+                this.button11.BackColor = Color.Transparent;
+
+
+                this.button10.BackColor = Color.Gainsboro;
+
+
+                ping_start = true;
+
+
+            }
+
+
+        }
+
+
+        private void button11_Click(object sender, EventArgs e)
+
+
+        {
+
+
+            this.button10.BackColor = Color.Transparent;
+
+
+            this.button11.BackColor = Color.Gainsboro;
+
+
+            //generate_Line();
+
+
+            ping_start = false;
+
+
+        }
+
+
+        List<List_Of_Line> LineFocalPoint = new List<List_Of_Line>();
+
+
+        public class List_Of_Line
+
+
+        {
+
+
+            public LineShape Line { get; set; }
+
+
+            public string pbFrom { get; set; }
+
+
+            public string pbTo { get; set; }
+
+
+        }
+
+
+        ShapeCollection lineshape;
+
+
+        public void generate_Line()
+
+
+        {
+
+
+            OleDbCommand cmd;
+
+
+            OleDbDataReader dr;
+
+
+            string sl = "Select A.ID, A.Attribute_From, A.Attribute_To, B.ip as ipFrom, C.ip as ipTo From connectors as A, attributes as B, attributes as C WHERE A.Attribute_From = B.ID And A.Attribute_To = C.ID";
+
+
+            conn.Open();
+
+
+            cmd = new OleDbCommand(sl, conn);
+
+
+            dr = cmd.ExecuteReader();
+
+
+            while (dr.Read())
+
+
+            {
+
+
+                for (int x = 0; x < pictureboxes.Count; x++)
+
+
+                {
+
+
+                    ShapeContainer canvas = new ShapeContainer();
+
+
+                    LineShape ln = new LineShape();
+
+
+                    canvas.Parent = this;
+
+
+                    ln.Parent = canvas;
+
+
+                    LineFocalPoint.Add(new List_Of_Line { Line = ln, pbFrom = dr.GetValue(3).ToString(), pbTo = dr.GetValue(4).ToString() });
+
+
+                    PictureBox pbfrom = this.Controls.Find(dr.GetValue(3).ToString(), true).FirstOrDefault() as PictureBox;
+
+
+                    PictureBox pbto = this.Controls.Find(dr.GetValue(4).ToString(), true).FirstOrDefault() as PictureBox;
+
+
+                    ln.StartPoint = new System.Drawing.Point(pbfrom.Left + pbfrom.Width / 2, pbfrom.Top + pbfrom.Height / 2);
+
+
+                    ln.EndPoint = new System.Drawing.Point(pbto.Left + pbto.Width / 2, pbto.Top + pbto.Height / 2);
+
+
+                    //lineshape.Add(ln);
+
+
+                }
+
+
+            }
+
+
+            conn.Close();
+
+
+        }
+
+
+        public void DrawLine_Paint(object sender, PaintEventArgs e)
+
+
+        {
+
+
+                e.Graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.High;
+
+
+                e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
+
+
+            for (int x = 0; x < LineFocalPoint.Count; x++)
+
+
+            {
+
+
+                PictureBox pbFrom = this.Controls.Find(LineFocalPoint[x].pbFrom, true).FirstOrDefault() as PictureBox;
+
+
+                PictureBox pbTo = this.Controls.Find(LineFocalPoint[x].pbTo, true).FirstOrDefault() as PictureBox;
+
+
+                Pen BlackPen = new Pen(Color.FromArgb(255, 0, 0, 0), 2);
+
+
+                Pen RedPen = new Pen(Color.FromArgb(192, 0, 0), 3);
+
+
+                DrawLineBetween(e.Graphics, pbFrom, pbTo, BlackPen);
+
+
+
+            }
+
+
+        }
+
+
+        public void DrawLineBetween(Graphics g, PictureBox pbfrom, PictureBox pbto, Pen pen_color)
+
+
+        {
+
+
+            g.DrawLine(pen_color, new Point(pbfrom.Left + pbfrom.Width / 2, pbfrom.Top + pbfrom.Height / 2),
+
+
+            new Point(pbto.Left + pbto.Width / 2, pbto.Top + pbto.Height / 2));
+
+
+        }
+
+
+        private void PB_Paint(object sender, PaintEventArgs e)
+
+
+        {
+
+
+            e.Graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.High;
+
+
+            e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
+
+
+
+            for (int x = 0; x < pictureboxes.Count; x++)
+
+
+            {
+
+
+                PictureBox pb = this.Controls.Find(pictureboxes[x].NAME, true).FirstOrDefault() as PictureBox;
+
+
+                Bitmap bm = new Bitmap(pb.Image);
+
+
+                Graphics gr = Graphics.FromImage(bm);
+
+
+                gr.DrawString(pb.Name, new Font("Verdana", (float)20, FontStyle.Bold, GraphicsUnit.Pixel), new SolidBrush(Color.Red),(float)20, (float)20);
+
+
+                gr.Dispose();
+
+
+                pb.Image = bm;
+
+
+            }
+
+
+        }
+
+
+    }
+
+
+}
